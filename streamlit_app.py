@@ -61,6 +61,7 @@ def load_data():
         if not df.empty:
             return df
     except Exception as e:
+        st.error(f"Error de conexión a Supabase: {str(e)}")
         print(f"Supabase connection failed: {e}")
     
     # Fallback to local file
