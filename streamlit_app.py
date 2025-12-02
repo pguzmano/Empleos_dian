@@ -116,18 +116,18 @@ def generate_data_summary(dataframe):
     try:
         # Prepare data context
         total_jobs = len(dataframe)
-        cities = dataframe['ciudad'].value_counts().head(5).to_dict()
-        top_positions = dataframe['cargo'].value_counts().head(5).to_dict()
+        cities = dataframe['ciudad'].value_counts().head(20).to_dict() # Increased context
+        top_positions = dataframe['cargo'].value_counts().head(20).to_dict() # Increased context
         avg_salary = dataframe['salario'].mean()
         
-        prompt = f"""Analiza estos datos de empleos de la DIAN en Colombia y genera un resumen ejecutivo en español (máximo 150 palabras):
+        prompt = f"""Analiza estos datos de empleos de la DIAN en Colombia y genera un resumen ejecutivo detallado en español:
         
 - Total de empleos: {total_jobs}
-- Ciudades principales: {cities}
-- Cargos más comunes: {top_positions}
+- Ciudades principales (top 20): {cities}
+- Cargos más comunes (top 20): {top_positions}
 - Salario promedio: ${avg_salary:,.0f}
 
-Incluye insights relevantes sobre patrones geográficos, distribución de cargos y tendencias salariales."""
+Incluye insights profundos sobre patrones geográficos, distribución de cargos, disparidades salariales y cualquier tendencia notable. No limites la longitud de tu respuesta, sé exhaustivo."""
 
         model = genai.GenerativeModel('gemini-1.5-pro')
         response = model.generate_content(prompt)
@@ -142,11 +142,18 @@ def chat_with_data(user_question, dataframe):
         return "El asistente de IA no está configurado. Agrega tu GEMINI_API_KEY al archivo .env"
     
     try:
-        # Prepare data context
+        # Prepare data context - Increased limits for Pro model
+        unique_cities = dataframe['ciudad'].unique().tolist()
+        unique_cargos = dataframe['cargo'].unique().tolist()
+        
+        # If lists are too long, we still truncate but much less than before
+        cities_str = str(unique_cities[:100]) + ("..." if len(unique_cities) > 100 else "")
+        cargos_str = str(unique_cargos[:100]) + ("..." if len(unique_cargos) > 100 else "")
+        
         data_summary = f"""Datos de empleos DIAN disponibles:
 - Total registros: {len(dataframe)}
-- Ciudades: {dataframe['ciudad'].unique().tolist()[:10]}
-- Cargos: {dataframe['cargo'].unique().tolist()[:10]}
+- Ciudades disponibles: {cities_str}
+- Cargos disponibles: {cargos_str}
 - Rango salarial: ${dataframe['salario'].min():,.0f} - ${dataframe['salario'].max():,.0f}
 """
         
@@ -154,7 +161,7 @@ def chat_with_data(user_question, dataframe):
 
 Pregunta del usuario: {user_question}
 
-Responde la pregunta en español de forma clara y concisa basándote en los datos disponibles."""
+Responde la pregunta en español de forma completa y detallada basándote en los datos disponibles. Si la respuesta requiere una lista larga, proporciónala."""
 
         model = genai.GenerativeModel('gemini-1.5-pro')
         response = model.generate_content(prompt)
