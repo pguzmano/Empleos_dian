@@ -22,7 +22,7 @@ try:
     try:
         supabase = create_client(url, key)
         # Try a simple request
-        supabase.table("empleos_dian").select("*").limit(1).execute()
+        supabase.table("Empleados Dian").select("*").limit(1).execute()
         print("\n[SUCCESS] Connection successful!")
     except Exception as e:
         print(f"\n[FAILURE] Connection failed: {e}")

@@ -56,7 +56,7 @@ supabase = init_connection()
 def load_data():
     # Try Supabase first
     try:
-        response = supabase.table("empleos_dian").select("*").execute()
+        response = supabase.table("Empleados Dian").select("*").execute()
         df = pd.DataFrame(response.data)
         if not df.empty:
             return df
