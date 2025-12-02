@@ -1,0 +1,6 @@
+pandas
+supabase
+openpyxl
+python-dotenv
+streamlit
+google-generativeai
