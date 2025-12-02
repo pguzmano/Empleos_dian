@@ -54,12 +54,61 @@ supabase = init_connection()
 # Load data
 @st.cache_data(ttl=600)
 def load_data():
+    # Helper to process/normalize dataframe
+    def process_dataframe(df_input):
+        # Map columns if they come from Supabase (Spanish names)
+        column_mapping = {
+            'Denominación': 'cargo',
+            'Asignación Salarial': 'salario',
+            'Vacantes': 'ciudad_raw',
+            'Opec': 'opec'
+        }
+        
+        # Rename columns if they exist
+        df_input = df_input.rename(columns=column_mapping)
+        
+        # Ensure we have the required columns
+        if 'cargo' not in df_input.columns and 'Denominación' in df_input.columns:
+             df_input['cargo'] = df_input['Denominación']
+             
+        if 'salario' not in df_input.columns and 'Asignación Salarial' in df_input.columns:
+             df_input['salario'] = df_input['Asignación Salarial']
+
+        # Extract city from 'Vacantes' or 'ciudad_raw' if 'ciudad' doesn't exist
+        if 'ciudad' not in df_input.columns:
+            if 'ciudad_raw' in df_input.columns:
+                # Format usually: "2 - Bogotá D.C. - DONDE SE UBIQUE..."
+                # Extract the text between the first hyphen and the second hyphen
+                # Or just take the second part if split by ' - '
+                def extract_city(val):
+                    if not isinstance(val, str): return "Desconocido"
+                    parts = val.split(' - ')
+                    if len(parts) >= 2:
+                        return parts[1].strip()
+                    return val
+                
+                df_input['ciudad'] = df_input['ciudad_raw'].apply(extract_city)
+            else:
+                df_input['ciudad'] = "Desconocido"
+
+        # Ensure numeric salary
+        if 'salario' in df_input.columns:
+            df_input['salario'] = pd.to_numeric(df_input['salario'], errors='coerce').fillna(0)
+            
+        # Add lat/lon placeholders if missing
+        if 'latitud' not in df_input.columns:
+            df_input['latitud'] = None
+        if 'longitud' not in df_input.columns:
+            df_input['longitud'] = None
+            
+        return df_input
+
     # Try Supabase first
     try:
         response = supabase.table("Empleados Dian").select("*").execute()
         df = pd.DataFrame(response.data)
         if not df.empty:
-            return df
+            return process_dataframe(df)
     except Exception as e:
         st.error(f"Error de conexión a Supabase: {str(e)}")
         print(f"Supabase connection failed: {e}")
@@ -90,6 +139,7 @@ def load_data():
             if salario_col: new_df['salario'] = df[salario_col]
             if ciudad_col: 
                 # Clean up city data if it contains multiple locations or formatting
+                new_df['ciudad_raw'] = df[ciudad_col]
                 new_df['ciudad'] = df[ciudad_col].astype(str).apply(lambda x: x.split('-')[1].strip() if '-' in x else x)
             
             # Add missing cols for compatibility

@@ -66,7 +66,7 @@ def main():
             }
             data_to_upload.append(record)
 
-        print(f"Preparing to upload {len(data_to_upload)} records to 'empleos_dian' table...")
+        print(f"Preparing to upload {len(data_to_upload)} records to 'Empleados Dian' table...")
 
         # Upload in batches to avoid hitting payload limits
         batch_size = 100
@@ -75,7 +75,7 @@ def main():
         for i in range(0, len(data_to_upload), batch_size):
             batch = data_to_upload[i:i + batch_size]
             try:
-                response = supabase.table("empleos_dian").insert(batch).execute()
+                response = supabase.table("Empleados Dian").insert(batch).execute()
                 # count inserted rows - response.data should be a list of inserted rows
                 if response.data:
                     total_inserted += len(response.data)
