@@ -258,7 +258,7 @@ Incluye insights profundos sobre patrones geográficos, distribución de cargos,
         # Try multiple models in order of preference
         models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
         response = None
-        last_error = None
+        errors = []
         
         for model_name in models_to_try:
             try:
@@ -266,13 +266,14 @@ Incluye insights profundos sobre patrones geográficos, distribución de cargos,
                 response = model.generate_content(prompt)
                 break # If successful, exit loop
             except Exception as e:
-                last_error = e
+                errors.append(f"{model_name}: {str(e)}")
                 continue
                 
         if response:
             return response.text
         else:
-            st.error(f"Error generando resumen con todos los modelos probados. Último error: {last_error}")
+            error_msg = "\n".join(errors)
+            st.error(f"Error generando resumen. Detalles técnicos:\n{error_msg}")
             return None
     except Exception as e:
         st.error(f"Error general: {e}")
@@ -309,7 +310,7 @@ Responde la pregunta en español de forma completa y detallada basándote en los
         # Try multiple models in order of preference
         models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
         response = None
-        last_error = None
+        errors = []
         
         for model_name in models_to_try:
             try:
@@ -317,13 +318,14 @@ Responde la pregunta en español de forma completa y detallada basándote en los
                 response = model.generate_content(prompt)
                 break # If successful, exit loop
             except Exception as e:
-                last_error = e
+                errors.append(f"{model_name}: {str(e)}")
                 continue
         
         if response:
             return response.text
         else:
-            return f"Error: No se pudo obtener respuesta de ningún modelo. Último error: {last_error}"
+            error_msg = "\n".join(errors)
+            return f"Error: No se pudo obtener respuesta. Detalles:\n{error_msg}"
     except Exception as e:
         return f"Error: {e}"
 
