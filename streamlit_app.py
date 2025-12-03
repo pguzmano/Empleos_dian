@@ -108,7 +108,9 @@ def load_data():
             'Vacantes': 'ciudad_raw',
             'Opec': 'opec',
             'Categoria': 'categoria',
-            'categoria': 'categoria'
+            'categoria': 'categoria',
+            'Convocatoria': 'convocatoria',
+            'convocatoria': 'convocatoria'
         }
         
         # Rename columns if they exist
@@ -196,6 +198,7 @@ def load_data():
             # Exclude 'cantidad' to avoid picking 'Cantidad de Vacantes'
             ciudad_col = get_col(['vacantes', 'ubicacion', 'ciudad'], exclude=['cantidad'])
             categoria_col = get_col(['categoria', 'categor'])
+            convocatoria_col = get_col(['convocatoria'])
             
             new_df = pd.DataFrame()
             if cargo_col: new_df['cargo'] = df[cargo_col]
@@ -204,6 +207,8 @@ def load_data():
                 new_df['ciudad_raw'] = df[ciudad_col]
             if categoria_col:
                 new_df['categoria'] = df[categoria_col]
+            if convocatoria_col:
+                new_df['convocatoria'] = df[convocatoria_col]
             
             # Process the dataframe to extract city, vacancies and coords
             return process_dataframe(new_df)
@@ -299,6 +304,13 @@ if not df.empty:
             selected_categorias = st.multiselect("Seleccionar Categoría", categorias, default=categorias)
         else:
             selected_categorias = None
+            
+        # Convocatoria Filter
+        if 'convocatoria' in df.columns:
+            convocatorias = sorted(df["convocatoria"].dropna().unique())
+            selected_convocatoria = st.multiselect("Seleccionar Convocatoria", convocatorias, default=convocatorias)
+        else:
+            selected_convocatoria = None
         
         # Salary Filter
         min_salary = int(df["salario"].min())
@@ -340,6 +352,10 @@ if not df.empty:
     # Apply category filter if available
     if selected_categorias is not None and 'categoria' in df.columns:
         filtered_df = filtered_df[filtered_df["categoria"].isin(selected_categorias)]
+
+    # Apply convocatoria filter if available
+    if selected_convocatoria is not None and 'convocatoria' in df.columns:
+        filtered_df = filtered_df[filtered_df["convocatoria"].isin(selected_convocatoria)]
 
     # Main Content
     
