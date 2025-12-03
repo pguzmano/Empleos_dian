@@ -126,6 +126,12 @@ def load_data():
         # Extract city and vacancy count from 'Vacantes' or 'ciudad_raw'
         if 'ciudad' not in df_input.columns:
             if 'ciudad_raw' in df_input.columns:
+                # Explode the dataframe to handle multiple cities per row
+                # Format: "3 - Armenia..., 4 - Cali..." separated by commas
+                df_input['ciudad_raw'] = df_input['ciudad_raw'].astype(str).str.split(',')
+                df_input = df_input.explode('ciudad_raw')
+                df_input['ciudad_raw'] = df_input['ciudad_raw'].str.strip()
+
                 # Format usually: "2 - Bogotá D.C. - DONDE SE UBIQUE..."
                 def extract_info(val):
                     city = "Desconocido"
@@ -370,9 +376,12 @@ if not df.empty:
     
     # KPIs
     col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("Total de Empleos (Registros)", len(filtered_df))
+        # Use unique OPEC for total jobs since we exploded the dataframe
+        total_empleos = filtered_df['opec'].nunique() if 'opec' in filtered_df.columns else len(filtered_df)
+        st.metric("Total de Empleos (OPEC)", total_empleos)
     
     with col2:
         total_vacantes = filtered_df['vacantes_count'].sum() if 'vacantes_count' in filtered_df.columns else 0
@@ -383,7 +392,11 @@ if not df.empty:
         st.metric("Ciudades", ciudades_unicas)
     
     with col4:
-        salario_promedio = filtered_df['salario'].mean()
+        # Calculate average salary based on unique jobs to avoid weighting by number of cities
+        if 'opec' in filtered_df.columns:
+            salario_promedio = filtered_df.drop_duplicates('opec')['salario'].mean()
+        else:
+            salario_promedio = filtered_df['salario'].mean()
         st.metric("Salario Promedio", f"${salario_promedio:,.0f}")
     
     # Map
