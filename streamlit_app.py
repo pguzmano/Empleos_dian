@@ -255,11 +255,27 @@ def generate_data_summary(dataframe):
 
 Incluye insights profundos sobre patrones geográficos, distribución de cargos, disparidades salariales y cualquier tendencia notable. No limites la longitud de tu respuesta, sé exhaustivo."""
 
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt)
-        return response.text
+        # Try multiple models in order of preference
+        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+        response = None
+        last_error = None
+        
+        for model_name in models_to_try:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                break # If successful, exit loop
+            except Exception as e:
+                last_error = e
+                continue
+                
+        if response:
+            return response.text
+        else:
+            st.error(f"Error generando resumen con todos los modelos probados. Último error: {last_error}")
+            return None
     except Exception as e:
-        st.error(f"Error generando resumen: {e}")
+        st.error(f"Error general: {e}")
         return None
 
 def chat_with_data(user_question, dataframe):
@@ -290,9 +306,24 @@ Pregunta del usuario: {user_question}
 
 Responde la pregunta en español de forma completa y detallada basándote en los datos disponibles. Si la respuesta requiere una lista larga, proporciónala."""
 
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt)
-        return response.text
+        # Try multiple models in order of preference
+        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+        response = None
+        last_error = None
+        
+        for model_name in models_to_try:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                break # If successful, exit loop
+            except Exception as e:
+                last_error = e
+                continue
+        
+        if response:
+            return response.text
+        else:
+            return f"Error: No se pudo obtener respuesta de ningún modelo. Último error: {last_error}"
     except Exception as e:
         return f"Error: {e}"
 
