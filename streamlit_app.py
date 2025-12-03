@@ -58,6 +58,7 @@ CITY_COORDINATES = {
     "Cali": {"lat": 3.4516, "lon": -76.5320},
     "Barranquilla": {"lat": 10.9685, "lon": -74.7813},
     "Cartagena": {"lat": 10.3910, "lon": -75.4794},
+    "Cartagena De Indias": {"lat": 10.3910, "lon": -75.4794},
     "Cúcuta": {"lat": 7.8939, "lon": -72.5078},
     "Bucaramanga": {"lat": 7.1193, "lon": -73.1227},
     "Pereira": {"lat": 4.8133, "lon": -75.6961},
@@ -469,7 +470,29 @@ if not df.empty:
 
     # Dataframe
     st.subheader("Detalle de Empleos")
-    st.dataframe(filtered_df, use_container_width=True)
+    
+    # Prepare dataframe for display
+    display_df = filtered_df.copy()
+    
+    # Rename columns
+    display_df = display_df.rename(columns={
+        'vacantes_count': 'Vacantes Ciudad Seleccionada',
+        'cargo': 'Cargo',
+        'salario': 'Salario',
+        'ciudad': 'Ciudad',
+        'categoria': 'Categoría',
+        'convocatoria': 'Convocatoria',
+        'opec': 'OPEC'
+    })
+    
+    # Drop unnecessary columns
+    cols_to_drop = ['latitud', 'longitud', 'ciudad_raw', 'Grado', 'Código Empleo', 'Codigo Empleo', 'codigo_empleo', 'Nivel', 'Estudio', 'Experiencia']
+    # Drop columns case-insensitive
+    for col in display_df.columns:
+        if any(drop_col.lower() == col.lower() for drop_col in cols_to_drop):
+            display_df = display_df.drop(columns=[col])
+            
+    st.dataframe(display_df, use_container_width=True)
 
 else:
     st.info("No hay datos disponibles o no se pudo conectar a la base de datos.")
