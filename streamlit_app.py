@@ -302,20 +302,25 @@ if not df.empty:
     if "map_selection" in st.session_state:
         selection = st.session_state.map_selection
         
-        # Initialize last_map_selection if not present
-        if "last_map_selection" not in st.session_state:
-            st.session_state.last_map_selection = None
+        # Extract the currently selected city from the map selection
+        current_map_city = None
+        if selection and "selection" in selection and "points" in selection["selection"]:
+            points = selection["selection"]["points"]
+            if points:
+                current_map_city = points[0]["hovertext"]
+        
+        # Initialize last_processed_map_city if not present
+        if "last_processed_map_city" not in st.session_state:
+            st.session_state.last_processed_map_city = None
 
-        # Check if the selection has changed
-        if selection != st.session_state.last_map_selection:
-            st.session_state.last_map_selection = selection
+        # Check if the extracted city has changed compared to what we last processed
+        if current_map_city != st.session_state.last_processed_map_city:
+            st.session_state.last_processed_map_city = current_map_city
             
-            if selection and "selection" in selection and "points" in selection["selection"]:
-                points = selection["selection"]["points"]
-                if points:
-                    selected_city_from_map = points[0]["hovertext"]
-                    # Update the city filter state
-                    st.session_state.city_filter_widget = [selected_city_from_map]
+            # Only update the widget if we have a valid city selection
+            if current_map_city is not None:
+                st.session_state.city_filter_widget = [current_map_city]
+                st.rerun()
 
     # Sidebar Filters
 
