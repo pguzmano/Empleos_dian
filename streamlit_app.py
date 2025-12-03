@@ -4,6 +4,7 @@ from supabase import create_client, Client
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
+import plotly.express as px
 
 # Load environment variables if present
 load_dotenv()
@@ -50,7 +51,51 @@ def init_connection():
 
 supabase = init_connection()
 
-# Load data
+# City Coordinates Mapping (Colombia)
+CITY_COORDINATES = {
+    "Bogotá D.C.": {"lat": 4.7110, "lon": -74.0721},
+    "Medellín": {"lat": 6.2442, "lon": -75.5812},
+    "Cali": {"lat": 3.4516, "lon": -76.5320},
+    "Barranquilla": {"lat": 10.9685, "lon": -74.7813},
+    "Cartagena": {"lat": 10.3910, "lon": -75.4794},
+    "Cúcuta": {"lat": 7.8939, "lon": -72.5078},
+    "Bucaramanga": {"lat": 7.1193, "lon": -73.1227},
+    "Pereira": {"lat": 4.8133, "lon": -75.6961},
+    "Santa Marta": {"lat": 11.2408, "lon": -74.1990},
+    "Ibagué": {"lat": 4.4389, "lon": -75.2322},
+    "Villavicencio": {"lat": 4.1420, "lon": -73.6266},
+    "Manizales": {"lat": 5.0703, "lon": -75.5138},
+    "Neiva": {"lat": 2.9273, "lon": -75.2819},
+    "Armenia": {"lat": 4.5339, "lon": -75.6811},
+    "Pasto": {"lat": 1.2136, "lon": -77.2811},
+    "Montería": {"lat": 8.7479, "lon": -75.8814},
+    "Sincelejo": {"lat": 9.3047, "lon": -75.3978},
+    "Popayán": {"lat": 2.4382, "lon": -76.6132},
+    "Tunja": {"lat": 5.5353, "lon": -73.3678},
+    "Riohacha": {"lat": 11.5444, "lon": -72.9072},
+    "Valledupar": {"lat": 10.4631, "lon": -73.2532},
+    "Quibdó": {"lat": 5.6947, "lon": -76.6611},
+    "Florencia": {"lat": 1.6175, "lon": -75.6062},
+    "Yopal": {"lat": 5.3378, "lon": -72.3959},
+    "Arauca": {"lat": 7.0847, "lon": -70.7591},
+    "San Andrés": {"lat": 12.5847, "lon": -81.7006},
+    "Leticia": {"lat": -4.2153, "lon": -69.9406},
+    "Puerto Carreño": {"lat": 6.1890, "lon": -67.4859},
+    "Inírida": {"lat": 3.8653, "lon": -67.9239},
+    "Mitú": {"lat": 1.1983, "lon": -70.1733},
+    "Mocoa": {"lat": 1.1462, "lon": -76.6461},
+    "San José del Guaviare": {"lat": 2.5729, "lon": -72.6378},
+    "Tumaco": {"lat": 1.7986, "lon": -78.8156},
+    "Buenaventura": {"lat": 3.8801, "lon": -77.0312},
+    "Barrancabermeja": {"lat": 7.0653, "lon": -73.8547},
+    "Ipiales": {"lat": 0.8248, "lon": -77.6441},
+    "Palmira": {"lat": 3.5394, "lon": -76.3036},
+    "Tuluá": {"lat": 4.0847, "lon": -76.1969},
+    "Girardot": {"lat": 4.3091, "lon": -74.8016},
+    "Sogamoso": {"lat": 5.7145, "lon": -72.9339},
+    "Duitama": {"lat": 5.8245, "lon": -73.0341}
+}
+
 # Load data
 @st.cache_data(ttl=600)
 def load_data():
@@ -74,32 +119,47 @@ def load_data():
         if 'salario' not in df_input.columns and 'Asignación Salarial' in df_input.columns:
              df_input['salario'] = df_input['Asignación Salarial']
 
-        # Extract city from 'Vacantes' or 'ciudad_raw' if 'ciudad' doesn't exist
+        # Extract city and vacancy count from 'Vacantes' or 'ciudad_raw'
         if 'ciudad' not in df_input.columns:
             if 'ciudad_raw' in df_input.columns:
                 # Format usually: "2 - Bogotá D.C. - DONDE SE UBIQUE..."
-                # Extract the text between the first hyphen and the second hyphen
-                # Or just take the second part if split by ' - '
-                def extract_city(val):
-                    if not isinstance(val, str): return "Desconocido"
-                    parts = val.split(' - ')
-                    if len(parts) >= 2:
-                        return parts[1].strip()
-                    return val
+                def extract_info(val):
+                    city = "Desconocido"
+                    vacancies = 1
+                    
+                    if isinstance(val, str):
+                        parts = val.split(' - ')
+                        # Try to extract vacancies count from first part
+                        try:
+                            if len(parts) > 0:
+                                vacancies = int(parts[0].strip())
+                        except ValueError:
+                            pass
+                        
+                        # Try to extract city from second part
+                        if len(parts) >= 2:
+                            city = parts[1].strip()
+                            
+                    return pd.Series([city, vacancies])
                 
-                df_input['ciudad'] = df_input['ciudad_raw'].apply(extract_city)
+                df_input[['ciudad', 'vacantes_count']] = df_input['ciudad_raw'].apply(extract_info)
             else:
                 df_input['ciudad'] = "Desconocido"
+                df_input['vacantes_count'] = 1
 
         # Ensure numeric salary
         if 'salario' in df_input.columns:
             df_input['salario'] = pd.to_numeric(df_input['salario'], errors='coerce').fillna(0)
             
-        # Add lat/lon placeholders if missing
-        if 'latitud' not in df_input.columns:
-            df_input['latitud'] = None
-        if 'longitud' not in df_input.columns:
-            df_input['longitud'] = None
+        # Map cities to coordinates
+        def get_lat(city):
+            return CITY_COORDINATES.get(city, {}).get("lat", None)
+        
+        def get_lon(city):
+            return CITY_COORDINATES.get(city, {}).get("lon", None)
+
+        df_input['latitud'] = df_input['ciudad'].apply(get_lat)
+        df_input['longitud'] = df_input['ciudad'].apply(get_lon)
             
         return df_input
 
@@ -138,15 +198,11 @@ def load_data():
             if cargo_col: new_df['cargo'] = df[cargo_col]
             if salario_col: new_df['salario'] = df[salario_col]
             if ciudad_col: 
-                # Clean up city data if it contains multiple locations or formatting
                 new_df['ciudad_raw'] = df[ciudad_col]
-                new_df['ciudad'] = df[ciudad_col].astype(str).apply(lambda x: x.split('-')[1].strip() if '-' in x else x)
             
-            # Add missing cols for compatibility
-            new_df['latitud'] = None
-            new_df['longitud'] = None
+            # Process the dataframe to extract city, vacancies and coords
+            return process_dataframe(new_df)
             
-            return new_df
     except Exception as e:
         st.error(f"Error cargando datos locales: {e}")
     
@@ -167,13 +223,15 @@ def generate_data_summary(dataframe):
     try:
         # Prepare data context
         total_jobs = len(dataframe)
+        total_vacancies = dataframe['vacantes_count'].sum() if 'vacantes_count' in dataframe.columns else total_jobs
         cities = dataframe['ciudad'].value_counts().head(20).to_dict() # Increased context
         top_positions = dataframe['cargo'].value_counts().head(20).to_dict() # Increased context
         avg_salary = dataframe['salario'].mean()
         
         prompt = f"""Analiza estos datos de empleos de la DIAN en Colombia y genera un resumen ejecutivo detallado en español:
         
-- Total de empleos: {total_jobs}
+- Total de empleos (registros): {total_jobs}
+- Total de vacantes: {total_vacancies}
 - Ciudades principales (top 20): {cities}
 - Cargos más comunes (top 20): {top_positions}
 - Salario promedio: ${avg_salary:,.0f}
@@ -203,6 +261,7 @@ def chat_with_data(user_question, dataframe):
         
         data_summary = f"""Datos de empleos DIAN disponibles:
 - Total registros: {len(dataframe)}
+- Total vacantes: {dataframe['vacantes_count'].sum() if 'vacantes_count' in dataframe.columns else 'N/A'}
 - Ciudades disponibles: {cities_str}
 - Cargos disponibles: {cargos_str}
 - Rango salarial: ${dataframe['salario'].min():,.0f} - ${dataframe['salario'].max():,.0f}
@@ -277,31 +336,91 @@ if not df.empty:
                     if summary:
                         st.markdown(summary)
     
-    # KPI
-    st.metric("Total de Empleos", len(filtered_df))
+    # KPIs
+    col1, col2, col3, col4 = st.columns(4)
     
-    # Bar Chart
-    st.subheader("Empleos por Cargo")
-    if not filtered_df.empty:
-        jobs_by_cargo = filtered_df["cargo"].value_counts()
-        st.bar_chart(jobs_by_cargo)
-    else:
-        st.info("No hay datos para mostrar con los filtros seleccionados.")
-
+    with col1:
+        st.metric("Total de Empleos (Registros)", len(filtered_df))
+    
+    with col2:
+        total_vacantes = filtered_df['vacantes_count'].sum() if 'vacantes_count' in filtered_df.columns else 0
+        st.metric("Total de Vacantes", int(total_vacantes))
+    
+    with col3:
+        ciudades_unicas = filtered_df['ciudad'].nunique()
+        st.metric("Ciudades", ciudades_unicas)
+    
+    with col4:
+        salario_promedio = filtered_df['salario'].mean()
+        st.metric("Salario Promedio", f"${salario_promedio:,.0f}")
+    
     # Map
-    st.subheader("Ubicación de Empleos")
+    st.subheader("Mapa de Vacantes")
     # Ensure lat/lon columns exist and are numeric
     map_cols = ["latitud", "longitud"]
     if all(col in filtered_df.columns for col in map_cols):
         # Drop rows with NaN in lat/lon for the map
         map_data = filtered_df.dropna(subset=map_cols)
+        
         if not map_data.empty:
-            st.map(map_data)
-            st.caption(f"Mostrando {len(map_data)} ubicaciones en el mapa.")
+            # Group by coordinates to count vacancies per location
+            map_data_grouped = map_data.groupby(['latitud', 'longitud', 'ciudad'])['vacantes_count'].sum().reset_index()
+            
+            # Rename columns to match Plotly's expected names
+            map_data_grouped = map_data_grouped.rename(columns={
+                'latitud': 'lat',
+                'longitud': 'lon',
+                'vacantes_count': 'vacantes'
+            })
+            
+            # Create interactive map with Plotly
+            fig = px.scatter_mapbox(
+                map_data_grouped,
+                lat='lat',
+                lon='lon',
+                size='vacantes',
+                color='vacantes',
+                hover_name='ciudad',
+                hover_data={'lat': False, 'lon': False, 'vacantes': True},
+                color_continuous_scale='Viridis',
+                size_max=30,
+                zoom=5,
+                center={'lat': 4.5709, 'lon': -74.2973},  # Centro de Colombia
+                mapbox_style='open-street-map',
+                title='Haz clic en una ciudad para filtrar'
+            )
+            
+            fig.update_layout(
+                height=500,
+                margin={"r": 0, "t": 40, "l": 0, "b": 0}
+            )
+            
+            # Display the map
+            selected_points = st.plotly_chart(fig, use_container_width=True, on_select="rerun", key="map_selection")
+            
+            st.caption(f"Mostrando {len(map_data_grouped)} ubicaciones en el mapa. Haz clic en un punto para filtrar por esa ciudad.")
+            
+            # Handle map selection
+            if selected_points and 'selection' in selected_points and 'points' in selected_points['selection']:
+                points = selected_points['selection']['points']
+                if points:
+                    # Get the selected city from the clicked point
+                    selected_city = points[0]['hovertext']
+                    st.info(f"Ciudad seleccionada: {selected_city}")
+                    # Note: To actually filter, we would need to use session state
+                    # This will be implemented in the next update
         else:
             st.info("No hay datos de ubicación válidos para mostrar en el mapa.")
     else:
         st.warning("El conjunto de datos no contiene columnas de 'latitud' y 'longitud'.")
+
+    # Bar Chart
+    st.subheader("Empleos por Cargo")
+    if not filtered_df.empty:
+        jobs_by_cargo = filtered_df["cargo"].value_counts().head(20)
+        st.bar_chart(jobs_by_cargo)
+    else:
+        st.info("No hay datos para mostrar con los filtros seleccionados.")
 
     # Dataframe
     st.subheader("Detalle de Empleos")

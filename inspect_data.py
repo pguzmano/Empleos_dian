@@ -1,14 +1,12 @@
 import pandas as pd
-import os
-
-file_path = r'c:/Users/Pedro Luis/Downloads/Empleos_dian/EmpleosDIAN_2025.xlsx'
 
 try:
-    df = pd.read_excel(file_path)
-    print("Columns:")
+    df = pd.read_excel("EmpleosDIAN_2025.xlsx")
+    print("Columns:", df.columns.tolist())
+    # Print first few rows of potential vacancy columns
     for col in df.columns:
-        print(f"- {col}")
-    print("\nFirst 3 rows:")
-    print(df.head(3))
+        if "vacan" in col.lower() or "cant" in col.lower():
+            print(f"\nValues in '{col}':")
+            print(df[col].head())
 except Exception as e:
-    print(f"Error reading file: {e}")
+    print(e)
