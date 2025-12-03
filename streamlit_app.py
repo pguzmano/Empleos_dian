@@ -398,6 +398,24 @@ if not df.empty:
     if selected_convocatoria is not None and 'convocatoria' in df.columns:
         filtered_df = filtered_df[filtered_df["convocatoria"].isin(selected_convocatoria)]
 
+    # Create a separate dataframe for the map that ignores the city filter
+    # This allows the map to show all cities matching other filters, so users can select them
+    map_df = df.copy()
+    
+    # Apply Salary Filter to map_df
+    map_df = map_df[
+        (map_df["salario"] >= selected_salary[0]) &
+        (map_df["salario"] <= selected_salary[1])
+    ]
+    
+    # Apply Category Filter to map_df
+    if selected_categorias is not None and 'categoria' in map_df.columns:
+        map_df = map_df[map_df["categoria"].isin(selected_categorias)]
+        
+    # Apply Convocatoria Filter to map_df
+    if selected_convocatoria is not None and 'convocatoria' in map_df.columns:
+        map_df = map_df[map_df["convocatoria"].isin(selected_convocatoria)]
+
     # Main Content
     
     # AI-Generated Summary
@@ -438,9 +456,9 @@ if not df.empty:
     st.subheader("Mapa de Vacantes")
     # Ensure lat/lon columns exist and are numeric
     map_cols = ["latitud", "longitud"]
-    if all(col in filtered_df.columns for col in map_cols):
+    if all(col in map_df.columns for col in map_cols):
         # Drop rows with NaN in lat/lon for the map
-        map_data = filtered_df.dropna(subset=map_cols)
+        map_data = map_df.dropna(subset=map_cols)
         
         if not map_data.empty:
             # Group by coordinates to count vacancies per location
