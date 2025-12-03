@@ -255,8 +255,8 @@ def generate_data_summary(dataframe):
 
 Incluye insights profundos sobre patrones geográficos, distribución de cargos, disparidades salariales y cualquier tendencia notable. No limites la longitud de tu respuesta, sé exhaustivo."""
 
-        # Try multiple models in order of preference
-        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+        # Try multiple models in order of preference based on available models
+        models_to_try = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash']
         response = None
         errors = []
         
@@ -307,8 +307,8 @@ Pregunta del usuario: {user_question}
 
 Responde la pregunta en español de forma completa y detallada basándote en los datos disponibles. Si la respuesta requiere una lista larga, proporciónala."""
 
-        # Try multiple models in order of preference
-        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+        # Try multiple models in order of preference based on available models
+        models_to_try = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash']
         response = None
         errors = []
         
