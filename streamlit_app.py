@@ -297,13 +297,35 @@ Responde la pregunta en español de forma completa y detallada basándote en los
         return f"Error: {e}"
 
 if not df.empty:
+    # Handle Map Selection State
+    # Check if a selection was made on the map (available in session state from previous run)
+    if "map_selection" in st.session_state:
+        selection = st.session_state.map_selection
+        if selection and "selection" in selection and "points" in selection["selection"]:
+            points = selection["selection"]["points"]
+            if points:
+                selected_city_from_map = points[0]["hovertext"]
+                # Update the city filter state if it's different
+                # We use a specific key for the widget: "city_filter_widget"
+                if "city_filter_widget" not in st.session_state or st.session_state.city_filter_widget != [selected_city_from_map]:
+                    st.session_state.city_filter_widget = [selected_city_from_map]
+
     # Sidebar Filters
+
     with st.sidebar:
         st.header("Filtros")
         
         # City Filter
         cities = sorted(df["ciudad"].dropna().unique())
-        selected_cities = st.multiselect("Seleccionar Ciudad", cities, default=cities)
+        # Initialize widget state if not present
+        if "city_filter_widget" not in st.session_state:
+            st.session_state.city_filter_widget = cities
+            
+        selected_cities = st.multiselect(
+            "Seleccionar Ciudad", 
+            cities, 
+            key="city_filter_widget"
+        )
         
         # Category Filter
         if 'categoria' in df.columns:
@@ -452,9 +474,8 @@ if not df.empty:
                 if points:
                     # Get the selected city from the clicked point
                     selected_city = points[0]['hovertext']
-                    st.info(f"Ciudad seleccionada: {selected_city}")
-                    # Note: To actually filter, we would need to use session state
-                    # This will be implemented in the next update
+                    st.info(f"Ciudad seleccionada en mapa: {selected_city}")
+                    # The actual filtering happens at the top of the script on the next rerun
         else:
             st.info("No hay datos de ubicación válidos para mostrar en el mapa.")
     else:
