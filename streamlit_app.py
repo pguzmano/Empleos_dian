@@ -106,7 +106,9 @@ def load_data():
             'Denominación': 'cargo',
             'Asignación Salarial': 'salario',
             'Vacantes': 'ciudad_raw',
-            'Opec': 'opec'
+            'Opec': 'opec',
+            'Categoria': 'categoria',
+            'categoria': 'categoria'
         }
         
         # Rename columns if they exist
@@ -192,13 +194,16 @@ def load_data():
             cargo_col = get_col(['denominac', 'cargo'])
             salario_col = get_col(['asignaci', 'salarial', 'sueldo'])
             # Exclude 'cantidad' to avoid picking 'Cantidad de Vacantes'
-            ciudad_col = get_col(['vacantes', 'ubicacion', 'ciudad'], exclude=['cantidad']) 
+            ciudad_col = get_col(['vacantes', 'ubicacion', 'ciudad'], exclude=['cantidad'])
+            categoria_col = get_col(['categoria', 'categor'])
             
             new_df = pd.DataFrame()
             if cargo_col: new_df['cargo'] = df[cargo_col]
             if salario_col: new_df['salario'] = df[salario_col]
             if ciudad_col: 
                 new_df['ciudad_raw'] = df[ciudad_col]
+            if categoria_col:
+                new_df['categoria'] = df[categoria_col]
             
             # Process the dataframe to extract city, vacancies and coords
             return process_dataframe(new_df)
@@ -288,6 +293,13 @@ if not df.empty:
         cities = sorted(df["ciudad"].dropna().unique())
         selected_cities = st.multiselect("Seleccionar Ciudad", cities, default=cities)
         
+        # Category Filter
+        if 'categoria' in df.columns:
+            categorias = sorted(df["categoria"].dropna().unique())
+            selected_categorias = st.multiselect("Seleccionar Categoría", categorias, default=categorias)
+        else:
+            selected_categorias = None
+        
         # Salary Filter
         min_salary = int(df["salario"].min())
         max_salary = int(df["salario"].max())
@@ -324,6 +336,10 @@ if not df.empty:
         (df["salario"] >= selected_salary[0]) &
         (df["salario"] <= selected_salary[1])
     ]
+    
+    # Apply category filter if available
+    if selected_categorias is not None and 'categoria' in df.columns:
+        filtered_df = filtered_df[filtered_df["categoria"].isin(selected_categorias)]
 
     # Main Content
     
