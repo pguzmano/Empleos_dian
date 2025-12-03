@@ -301,13 +301,20 @@ if not df.empty:
     # Check if a selection was made on the map (available in session state from previous run)
     if "map_selection" in st.session_state:
         selection = st.session_state.map_selection
-        if selection and "selection" in selection and "points" in selection["selection"]:
-            points = selection["selection"]["points"]
-            if points:
-                selected_city_from_map = points[0]["hovertext"]
-                # Update the city filter state if it's different
-                # We use a specific key for the widget: "city_filter_widget"
-                if "city_filter_widget" not in st.session_state or st.session_state.city_filter_widget != [selected_city_from_map]:
+        
+        # Initialize last_map_selection if not present
+        if "last_map_selection" not in st.session_state:
+            st.session_state.last_map_selection = None
+
+        # Check if the selection has changed
+        if selection != st.session_state.last_map_selection:
+            st.session_state.last_map_selection = selection
+            
+            if selection and "selection" in selection and "points" in selection["selection"]:
+                points = selection["selection"]["points"]
+                if points:
+                    selected_city_from_map = points[0]["hovertext"]
+                    # Update the city filter state
                     st.session_state.city_filter_widget = [selected_city_from_map]
 
     # Sidebar Filters
