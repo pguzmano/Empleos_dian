@@ -416,6 +416,17 @@ if not df.empty:
             st.warning("⚠️ Gemini no configurado")
             st.caption("Agrega tu GEMINI_API_KEY al archivo .env para activar el asistente de IA")
 
+        # Diagnostic Section
+        with st.expander("🛠️ Diagnóstico de Conexión IA"):
+            st.write(f"Versión de librería: {genai.__version__}")
+            if st.button("Listar Modelos Disponibles"):
+                try:
+                    models = list(genai.list_models())
+                    model_names = [m.name for m in models]
+                    st.write("Modelos encontrados:", model_names)
+                except Exception as e:
+                    st.error(f"Error listando modelos: {e}")
+
     # Apply Filters
     filtered_df = df[
         (df["ciudad"].isin(selected_cities)) &
