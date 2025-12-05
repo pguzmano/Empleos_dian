@@ -111,7 +111,11 @@ def load_data():
             'Categoria': 'categoria',
             'categoria': 'categoria',
             'Convocatoria': 'convocatoria',
-            'convocatoria': 'convocatoria'
+            'convocatoria': 'convocatoria',
+            'Descripción': 'descripcion',
+            'Descripci\u00f3n': 'descripcion',
+            'Estudio': 'estudio',
+            'Experiencia': 'experiencia'
         }
         
         # Rename columns if they exist
@@ -123,6 +127,52 @@ def load_data():
              
         if 'salario' not in df_input.columns and 'Asignación Salarial' in df_input.columns:
              df_input['salario'] = df_input['Asignación Salarial']
+
+        # Extract process from 'descripcion' if available
+        if 'descripcion' in df_input.columns:
+            def extract_proceso(val):
+                if not isinstance(val, str):
+                    return "Desconocido"
+                # Look for pattern like XX-XX-XXXX at start
+                import re
+                # User wants first 4 letters with hyphen: IT-IT
+                match = re.search(r'^([A-Z]{2}-[A-Z]{2})', val)
+                if match:
+                    return match.group(1)
+                
+                # Fallback: simple split
+                parts = val.split('-')
+                if len(parts) > 1 and len(parts[0].strip()) == 2 and len(parts[1].strip()) == 2:
+                    return f"{parts[0].strip()}-{parts[1].strip()}"
+                
+                return "Otros"
+            
+            df_input['proceso'] = df_input['descripcion'].apply(extract_proceso)
+        elif 'proceso' not in df_input.columns:
+            df_input['proceso'] = "Desconocido"
+
+        # Extract 'NBC' (Núcleo Básico de Conocimiento) from 'estudio' if available
+        if 'estudio' in df_input.columns:
+            def extract_nbc(val):
+                if not isinstance(val, str):
+                    return []
+                # Pattern: "NBC: PROFESION"
+                # Normalize spaces
+                val = val.replace('\n', ' ').strip()
+                parts = val.split("NBC:")
+                extracted = []
+                for part in parts[1:]:
+                    # Clean up each part, stopping at separators like " ,O,"
+                    clean_part = part.strip().split(" ,O,")[0]
+                    # Also strip common trailing chars
+                    clean_part = clean_part.strip(" .")
+                    if clean_part:
+                        extracted.append(clean_part)
+                return list(set(extracted))
+            
+            df_input['estudios_parsed'] = df_input['estudio'].apply(extract_nbc)
+        else:
+            df_input['estudios_parsed'] = df_input.apply(lambda x: [], axis=1)
 
         # Extract city and vacancy count from 'Vacantes' or 'ciudad_raw'
         if 'ciudad' not in df_input.columns:
@@ -206,6 +256,10 @@ def load_data():
             ciudad_col = get_col(['vacantes', 'ubicacion', 'ciudad'], exclude=['cantidad'])
             categoria_col = get_col(['categoria', 'categor'])
             convocatoria_col = get_col(['convocatoria'])
+            convocatoria_col = get_col(['convocatoria'])
+            descripcion_col = get_col(['descripci'])
+            estudio_col = get_col(['estudio'])
+            experiencia_col = get_col(['experiencia'])
             
             new_df = pd.DataFrame()
             if cargo_col: new_df['cargo'] = df[cargo_col]
@@ -216,6 +270,12 @@ def load_data():
                 new_df['categoria'] = df[categoria_col]
             if convocatoria_col:
                 new_df['convocatoria'] = df[convocatoria_col]
+            if descripcion_col:
+                new_df['descripcion'] = df[descripcion_col]
+            if estudio_col:
+                new_df['estudio'] = df[estudio_col]
+            if experiencia_col:
+                new_df['experiencia'] = df[experiencia_col]
             
             # Process the dataframe to extract city, vacancies and coords
             return process_dataframe(new_df)
@@ -385,6 +445,22 @@ if not df.empty:
             selected_convocatoria = st.multiselect("Seleccionar Convocatoria", convocatorias, default=convocatorias)
         else:
             selected_convocatoria = None
+
+        # Process Filter
+        if 'proceso' in df.columns:
+            procesos = sorted(df["proceso"].dropna().unique())
+            # Default to all processes
+            selected_procesos = st.multiselect("Filtrar por Ficha", procesos, default=procesos)
+        else:
+            selected_procesos = None
+            
+        # Study Filter
+        if 'estudios_parsed' in df.columns:
+            # Flatten list of lists to get unique values
+            all_nbcs = sorted(list(set([item for sublist in df['estudios_parsed'] for item in sublist])))
+            selected_estudios = st.multiselect("Filtrar por Estudio", all_nbcs)
+        else:
+            selected_estudios = None
         
         # Salary Filter
         min_salary = int(df["salario"].min())
@@ -442,6 +518,15 @@ if not df.empty:
     if selected_convocatoria is not None and 'convocatoria' in df.columns:
         filtered_df = filtered_df[filtered_df["convocatoria"].isin(selected_convocatoria)]
 
+    # Apply process filter if available
+    if selected_procesos is not None and 'proceso' in df.columns:
+        filtered_df = filtered_df[filtered_df["proceso"].isin(selected_procesos)]
+        
+    # Apply Study filter if available
+    if selected_estudios and 'estudios_parsed' in df.columns:
+        # Check if any selected study is in the row's list of studies
+        filtered_df = filtered_df[filtered_df['estudios_parsed'].apply(lambda x: any(s in selected_estudios for s in x))]
+
     # Create a separate dataframe for the map that ignores the city filter
     # This allows the map to show all cities matching other filters, so users can select them
     map_df = df.copy()
@@ -460,6 +545,15 @@ if not df.empty:
     if selected_convocatoria is not None and 'convocatoria' in map_df.columns:
         map_df = map_df[map_df["convocatoria"].isin(selected_convocatoria)]
 
+    # Apply Process Filter to map_df
+    # Apply Process Filter to map_df
+    if selected_procesos is not None and 'proceso' in map_df.columns:
+        map_df = map_df[map_df["proceso"].isin(selected_procesos)]
+        
+    # Apply Study filter to map_df
+    if selected_estudios and 'estudios_parsed' in map_df.columns:
+        map_df = map_df[map_df['estudios_parsed'].apply(lambda x: any(s in selected_estudios for s in x))]
+
     # Main Content
     
     # AI-Generated Summary
@@ -472,7 +566,6 @@ if not df.empty:
                         st.markdown(summary)
     
     # KPIs
-    col1, col2, col3, col4 = st.columns(4)
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -577,11 +670,16 @@ if not df.empty:
         'ciudad': 'Ciudad',
         'categoria': 'Categoría',
         'convocatoria': 'Convocatoria',
-        'opec': 'OPEC'
+        'opec': 'OPEC',
+        'estudio': 'Estudio',
+        'experiencia': 'Experiencia',
+        'Cantidad de Vacantes': 'Numero de vacantes del proceso',
+        'cantidad de vacantes': 'Numero de vacantes del proceso'
     })
     
     # Drop unnecessary columns
-    cols_to_drop = ['latitud', 'longitud', 'ciudad_raw', 'Grado', 'Código Empleo', 'Codigo Empleo', 'codigo_empleo', 'Nivel', 'Estudio', 'Experiencia']
+    # User requested to hide 'proceso' from the table but keep 'estudio' and 'experiencia'
+    cols_to_drop = ['latitud', 'longitud', 'ciudad_raw', 'Grado', 'Código Empleo', 'Codigo Empleo', 'codigo_empleo', 'Nivel', 'proceso', 'descripcion', 'vacantes_raw']
     # Drop columns case-insensitive
     for col in display_df.columns:
         if any(drop_col.lower() == col.lower() for drop_col in cols_to_drop):
