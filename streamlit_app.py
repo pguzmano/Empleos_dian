@@ -125,8 +125,11 @@ def load_data():
         if 'cargo' not in df_input.columns and 'Denominación' in df_input.columns:
              df_input['cargo'] = df_input['Denominación']
              
-        if 'salario' not in df_input.columns and 'Asignación Salarial' in df_input.columns:
-             df_input['salario'] = df_input['Asignación Salarial']
+        if 'salario' not in df_input.columns:
+             if 'Asignación Salarial' in df_input.columns:
+                 df_input['salario'] = df_input['Asignación Salarial']
+             else:
+                 df_input['salario'] = 0
 
         # Extract process from 'descripcion' if available
         if 'descripcion' in df_input.columns:
@@ -592,10 +595,13 @@ if not df.empty:
     
     with col4:
         # Calculate average salary based on unique jobs to avoid weighting by number of cities
-        if 'opec' in filtered_df.columns:
-            salario_promedio = filtered_df.drop_duplicates('opec')['salario'].mean()
-        else:
-            salario_promedio = filtered_df['salario'].mean()
+        salario_promedio = 0
+        if 'salario' in filtered_df.columns:
+            if 'opec' in filtered_df.columns:
+                salario_promedio = filtered_df.drop_duplicates('opec')['salario'].mean()
+            else:
+                salario_promedio = filtered_df['salario'].mean()
+        
         st.metric("Salario Promedio", f"${salario_promedio:,.0f}")
     
     # Map
@@ -692,7 +698,7 @@ if not df.empty:
     
     # Drop unnecessary columns
     # User requested to hide 'proceso' from the table but keep 'estudio' and 'experiencia'
-    cols_to_drop = ['latitud', 'longitud', 'ciudad_raw', 'Grado', 'Código Empleo', 'Codigo Empleo', 'codigo_empleo', 'Nivel', 'vacantes_raw']
+    cols_to_drop = ['latitud', 'longitud', 'ciudad_raw', 'Grado', 'Código Empleo', 'Codigo Empleo', 'codigo_empleo', 'Nivel', 'vacantes_raw', 'estudios_parsed']
     # Drop columns case-insensitive
     for col in display_df.columns:
         if any(drop_col.lower() == col.lower() for drop_col in cols_to_drop):
