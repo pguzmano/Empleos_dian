@@ -420,45 +420,54 @@ if not df.empty:
     with st.sidebar:
         st.header("Filtros")
         
-        # City Filter
+        # --- Dynamic Filters ---
+        # Filters are applied sequentially to narrow down options
+        
+        # 1. City Filter (Top Level)
         cities = sorted(df["ciudad"].dropna().unique())
-        # Initialize widget state if not present
         if "city_filter_widget" not in st.session_state:
             st.session_state.city_filter_widget = cities
             
-        selected_cities = st.multiselect(
-            "Seleccionar Ciudad", 
-            cities, 
-            key="city_filter_widget"
-        )
+        selected_cities = st.multiselect("Seleccionar Ciudad", cities, key="city_filter_widget")
         
-        # Category Filter
+        # Filter data for next steps
+        df_filtered_context = df.copy()
+        if selected_cities:
+            df_filtered_context = df_filtered_context[df_filtered_context["ciudad"].isin(selected_cities)]
+
+        # 2. Category Filter
         if 'categoria' in df.columns:
-            categorias = sorted(df["categoria"].dropna().unique())
+            # Show only categories available in selected cities
+            categorias = sorted(df_filtered_context["categoria"].dropna().unique())
             selected_categorias = st.multiselect("Seleccionar Categoría", categorias, default=categorias)
+            if selected_categorias:
+                df_filtered_context = df_filtered_context[df_filtered_context["categoria"].isin(selected_categorias)]
         else:
             selected_categorias = None
             
-        # Convocatoria Filter
+        # 3. Convocatoria Filter
         if 'convocatoria' in df.columns:
-            convocatorias = sorted(df["convocatoria"].dropna().unique())
+            convocatorias = sorted(df_filtered_context["convocatoria"].dropna().unique())
             selected_convocatoria = st.multiselect("Seleccionar Convocatoria", convocatorias, default=convocatorias)
+            if selected_convocatoria:
+                 df_filtered_context = df_filtered_context[df_filtered_context["convocatoria"].isin(selected_convocatoria)]
         else:
             selected_convocatoria = None
 
-        # Process Filter
+        # 4. Ficha (Proceso) Filter
         if 'proceso' in df.columns:
-            procesos = sorted(df["proceso"].dropna().unique())
-            # Default to all processes
+            procesos = sorted(df_filtered_context["proceso"].dropna().unique())
             selected_procesos = st.multiselect("Filtrar por Ficha", procesos, default=procesos)
+            if selected_procesos:
+                df_filtered_context = df_filtered_context[df_filtered_context["proceso"].isin(selected_procesos)]
         else:
             selected_procesos = None
             
-        # Study Filter
+        # 5. Study Filter
         if 'estudios_parsed' in df.columns:
-            # Flatten list of lists to get unique values
-            all_nbcs = sorted(list(set([item for sublist in df['estudios_parsed'] for item in sublist])))
-            selected_estudios = st.multiselect("Filtrar por Estudio", all_nbcs)
+            # Flatten list of lists to get unique values from the CURRENT filtered context
+            current_nbcs = sorted(list(set([item for sublist in df_filtered_context['estudios_parsed'] for item in sublist])))
+            selected_estudios = st.multiselect("Filtrar por Estudio", current_nbcs)
         else:
             selected_estudios = None
         
@@ -578,7 +587,7 @@ if not df.empty:
         st.metric("Total de Vacantes", int(total_vacantes))
     
     with col3:
-        ciudades_unicas = filtered_df['ciudad'].nunique()
+        ciudades_unicas = filtered_df['ciudad'].nunique() if 'ciudad' in filtered_df.columns else 0
         st.metric("Ciudades", ciudades_unicas)
     
     with col4:
@@ -674,12 +683,16 @@ if not df.empty:
         'estudio': 'Estudio',
         'experiencia': 'Experiencia',
         'Cantidad de Vacantes': 'Numero de vacantes del proceso',
-        'cantidad de vacantes': 'Numero de vacantes del proceso'
+        'cantidad de vacantes': 'Numero de vacantes del proceso',
+        'proceso': 'Ficha',
+        'Proceso': 'Ficha',
+        'descripcion': 'Descripción',
+        'Descripción': 'Descripción'
     })
     
     # Drop unnecessary columns
     # User requested to hide 'proceso' from the table but keep 'estudio' and 'experiencia'
-    cols_to_drop = ['latitud', 'longitud', 'ciudad_raw', 'Grado', 'Código Empleo', 'Codigo Empleo', 'codigo_empleo', 'Nivel', 'proceso', 'descripcion', 'vacantes_raw']
+    cols_to_drop = ['latitud', 'longitud', 'ciudad_raw', 'Grado', 'Código Empleo', 'Codigo Empleo', 'codigo_empleo', 'Nivel', 'vacantes_raw']
     # Drop columns case-insensitive
     for col in display_df.columns:
         if any(drop_col.lower() == col.lower() for drop_col in cols_to_drop):
