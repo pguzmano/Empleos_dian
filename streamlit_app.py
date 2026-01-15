@@ -44,10 +44,14 @@ def init_connection():
         pass # Other errors accessing secrets
         
     if not url or not key or "tu_supabase_url_aqui" in url:
-        st.error("⚠️ Falta configuración: Por favor configura SUPABASE_URL y SUPABASE_KEY en el archivo .env o .streamlit/secrets.toml")
-        st.stop()
+        # Instead of stopping, we return None to indicate no connection
+        return None
         
-    return create_client(url, key)
+    try:
+        return create_client(url, key)
+    except Exception as e:
+        print(f"Failed to create Supabase client: {e}")
+        return None
 
 supabase = init_connection()
 
@@ -229,19 +233,24 @@ def load_data():
 
     # Try Supabase first
     try:
-        response = supabase.table("Empleados Dian").select("*").execute()
-        df = pd.DataFrame(response.data)
-        if not df.empty:
-            return process_dataframe(df)
+        if supabase:
+            response = supabase.table("Empleados Dian").select("*").execute()
+            df = pd.DataFrame(response.data)
+            if not df.empty:
+                return process_dataframe(df)
     except Exception as e:
-        st.error(f"Error de conexión a Supabase: {str(e)}")
+        # Log error to console but don't show to user unless debugging
         print(f"Supabase connection failed: {e}")
     
     # Fallback to local file
     try:
         local_file = "EmpleosDIAN_2025.xlsx"
         if os.path.exists(local_file):
-            st.warning("⚠️ Modo Offline: Usando datos locales (Excel) debido a error de conexión con la base de datos.")
+            if supabase is None or 'response' in locals() or 'e' in locals():
+                 # Only show warning if really offline to avoid clutter
+                 pass
+                 # st.toast("⚠️ Usando datos locales (Offline)", icon="📂")
+                 
             df = pd.read_excel(local_file)
             
             # Helper to find col by keyword
@@ -293,6 +302,15 @@ st.title("Dashboard de Empleos DIAN")
 
 # Load data
 df = load_data()
+
+# Show offline indicator if applicable
+if 'supabase' not in globals() or supabase is None:
+    st.markdown("""
+        <div style="background-color: #f0f2f6; padding: 0.5rem; border-radius: 0.5rem; margin-bottom: 1rem; border-left: 5px solid #ffa500;">
+            <span style="color: #555; font-weight: bold;">⚠️ Modo Offline:</span>
+            <span style="color: #666;"> Se están mostrando datos locales porque no se pudo establecer conexión con la base de datos.</span>
+        </div>
+    """, unsafe_allow_html=True)
 
 # Gemini Assistant Functions
 def generate_data_summary(dataframe):
@@ -665,11 +683,57 @@ if not df.empty:
 
     # Bar Chart
     st.subheader("Empleos por Cargo")
+    
+    # Initialize bar selection state if not present
+    if "bar_selection_cargo" not in st.session_state:
+        st.session_state.bar_selection_cargo = None
+
     if not filtered_df.empty:
-        jobs_by_cargo = filtered_df["cargo"].value_counts().head(20)
-        st.bar_chart(jobs_by_cargo)
+        # Prepare data for Plotly
+        jobs_by_cargo = filtered_df["cargo"].value_counts().head(20).reset_index()
+        jobs_by_cargo.columns = ["cargo", "count"]
+        
+        # Create interactive bar chart
+        fig_bar = px.bar(
+            jobs_by_cargo, 
+            x="cargo", 
+            y="count",
+            labels={"cargo": "Cargo", "count": "Cantidad de Vacantes"},
+            color="count",
+            color_continuous_scale='Viridis'
+        )
+        
+        # Update layout for better UX
+        fig_bar.update_layout(
+            clickmode='event+select',
+            xaxis_tickangle=-45,
+            margin=dict(b=100) # Give space for labels
+        )
+        
+        # Display chart with selection enabled
+        selected_bar = st.plotly_chart(fig_bar, use_container_width=True, on_select="rerun", key="bar_selection")
+        
+        # Handle selection
+        if selected_bar and "selection" in selected_bar and "points" in selected_bar["selection"]:
+            points = selected_bar["selection"]["points"]
+            if points:
+                # Get selected cargo
+                selected_cargo = points[0]["x"]
+                st.session_state.bar_selection_cargo = selected_cargo
+                st.info(f"Filtrando por cargo: {selected_cargo}")
+            else:
+                # Deselection
+                st.session_state.bar_selection_cargo = None
+        else:
+            # Also handle case where selection is cleared via UI interaction that returns empty selection
+            st.session_state.bar_selection_cargo = None
+
     else:
         st.info("No hay datos para mostrar con los filtros seleccionados.")
+
+    # Apply Bar Chart Filter to the main dataframe for the table view
+    if st.session_state.bar_selection_cargo:
+        filtered_df = filtered_df[filtered_df["cargo"] == st.session_state.bar_selection_cargo]
 
     # Dataframe
     st.subheader("Detalle de Empleos")
