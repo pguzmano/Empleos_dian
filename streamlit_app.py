@@ -1,31 +1,40 @@
 import streamlit as st
 import pandas as pd
-from supabase import create_client, Client
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
-import plotly.express as px
 
-# Load environment variables if present
-load_dotenv()
-
-# Page config
+# Page config - MUST BE FIRST
 st.set_page_config(page_title="Empleos DIAN", layout="wide")
 
-# HEARTBEAT - Prove app is running
-st.success("🚀 La aplicación se ha iniciado correctamente!")
-st.info("Cargando componentes... Si ves este mensaje, el motor de Streamlit está funcionando.")
+# HEARTBEAT - Prove app is starting
+st.success("🏁 Aplicación detectada por el servidor")
+st.info("Iniciando carga de módulos...")
 
-# Early import check
+# HEARTBEAT - Prove app is running
+st.success("🚀 Motor de Streamlit activo")
+
+# Load environment variables if present
 try:
-    import pandas as pd
-    import plotly.express as px
-    import google.generativeai as genai
-    from supabase import create_client, Client
-except Exception as e:
-    st.error(f"❌ Error al cargar librerías: {e}")
-    st.info("Asegúrate de que requirements.txt incluya pandas, plotly, google-generativeai y supabase.")
-    st.stop()
+    load_dotenv()
+except Exception:
+    pass
+
+# Lazy Config for Gemini
+def configure_gemini():
+    try:
+        import google.generativeai as genai
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key and "GEMINI_API_KEY" in st.secrets:
+            api_key = st.secrets["GEMINI_API_KEY"]
+        
+        if api_key and "tu_gemini_api_key_aqui" not in api_key:
+            genai.configure(api_key=api_key)
+            return True, genai
+    except Exception as e:
+        print(f"Gemini config error: {e}")
+    return False, None
+
+gemini_enabled, genai_lib = configure_gemini()
 
 # Configure Gemini
 # Configure Gemini
@@ -44,31 +53,26 @@ else:
 # Initialize connection
 @st.cache_resource
 def init_connection():
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_KEY")
-    
-    # Fallback to st.secrets if not in os.environ (useful for Streamlit Cloud)
     try:
+        from supabase import create_client
+        url = os.environ.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_KEY")
+        
         if not url and "SUPABASE_URL" in st.secrets:
             url = st.secrets["SUPABASE_URL"]
         if not key and "SUPABASE_KEY" in st.secrets:
             key = st.secrets["SUPABASE_KEY"]
-    except FileNotFoundError:
-        pass # No secrets file found, just ignore
-    except Exception:
-        pass # Other errors accessing secrets
-        
-    if not url or not key or "tu_supabase_url_aqui" in url:
-        # Instead of stopping, we return None to indicate no connection
-        return None
-        
-    try:
+            
+        if not url or not key or "tu_supabase_url_aqui" in url:
+            return None
+            
         return create_client(url, key)
     except Exception as e:
-        print(f"Failed to create Supabase client: {e}")
+        print(f"Supabase init error: {e}")
         return None
 
 supabase = init_connection()
+st.info("Conexiones inicializadas...")
 
 # City Coordinates Mapping (Colombia)
 CITY_COORDINATES = {
@@ -400,7 +404,7 @@ Incluye insights profundos sobre patrones geográficos, distribución de cargos,
         
         for model_name in models_to_try:
             try:
-                model = genai.GenerativeModel(model_name)
+                model = genai_lib.GenerativeModel(model_name)
                 response = model.generate_content(prompt)
                 break # If successful, exit loop
             except Exception as e:
@@ -452,7 +456,7 @@ Responde la pregunta en español de forma completa y detallada basándote en los
         
         for model_name in models_to_try:
             try:
-                model = genai.GenerativeModel(model_name)
+                model = genai_lib.GenerativeModel(model_name)
                 response = model.generate_content(prompt)
                 break # If successful, exit loop
             except Exception as e:
@@ -579,12 +583,11 @@ if not df.empty:
             st.warning("⚠️ Gemini no configurado")
             st.caption("Agrega tu GEMINI_API_KEY al archivo .env para activar el asistente de IA")
 
-        # Diagnostic Section
         with st.expander("🛠️ Diagnóstico de Conexión IA"):
-            st.write(f"Versión de librería: {genai.__version__}")
             if st.button("Listar Modelos Disponibles"):
                 try:
-                    models = list(genai.list_models())
+                    import google.generativeai as genai_internal
+                    models = list(genai_internal.list_models())
                     model_names = [m.name for m in models]
                     st.write("Modelos encontrados:", model_names)
                 except Exception as e:
@@ -700,6 +703,7 @@ if not df.empty:
             
             # Create interactive map with Plotly (with fallback for old versions in cloud)
             try:
+                import plotly.express as px
                 # Try modern scatter_map first
                 fig = px.scatter_map(
                     map_data_grouped,
@@ -768,6 +772,7 @@ if not df.empty:
         st.session_state.bar_selection_cargo = None
 
     if not filtered_df.empty:
+        import plotly.express as px
         # Prepare data for Plotly
         jobs_by_cargo = filtered_df["cargo"].value_counts().head(20).reset_index()
         jobs_by_cargo.columns = ["cargo", "count"]
