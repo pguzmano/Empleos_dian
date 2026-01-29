@@ -36,19 +36,6 @@ def configure_gemini():
 
 gemini_enabled, genai_lib = configure_gemini()
 
-# Configure Gemini
-# Configure Gemini
-gemini_api_key = os.environ.get("GEMINI_API_KEY")
-
-# Check secrets if not in env
-if not gemini_api_key and "GEMINI_API_KEY" in st.secrets:
-    gemini_api_key = st.secrets["GEMINI_API_KEY"]
-
-if gemini_api_key and "tu_gemini_api_key_aqui" not in gemini_api_key:
-    genai.configure(api_key=gemini_api_key)
-    gemini_enabled = True
-else:
-    gemini_enabled = False
 
 # Initialize connection
 @st.cache_resource
