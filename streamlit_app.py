@@ -12,8 +12,20 @@ load_dotenv()
 # Page config
 st.set_page_config(page_title="Empleos DIAN", layout="wide")
 
+# HEARTBEAT - Prove app is running
 st.success("🚀 La aplicación se ha iniciado correctamente!")
-st.info("Cargando datos... Por favor espera un momento.")
+st.info("Cargando componentes... Si ves este mensaje, el motor de Streamlit está funcionando.")
+
+# Early import check
+try:
+    import pandas as pd
+    import plotly.express as px
+    import google.generativeai as genai
+    from supabase import create_client, Client
+except Exception as e:
+    st.error(f"❌ Error al cargar librerías: {e}")
+    st.info("Asegúrate de que requirements.txt incluya pandas, plotly, google-generativeai y supabase.")
+    st.stop()
 
 # Configure Gemini
 # Configure Gemini
@@ -109,8 +121,9 @@ def normalize_city_name(name):
     if not isinstance(name, str):
         return "Desconocido"
     
-    # Common encoding fixes for Spanish characters
-    name = name.replace('', 'o').replace('', 'o') # Common artifacts for 'ó'
+    # Common encoding fixes for Spanish characters (using unicode escape for robustness)
+    name = name.replace('\ufffd', 'o') # Replaces  with o
+    name = name.replace('Denominacin', 'Denominación').replace('Descripcin', 'Descripción')
     name = name.replace('Bogot', 'Bogotá').replace('Bogotá D.C.', 'Bogotá D.C.')
     name = name.replace('Medelln', 'Medellín')
     name = name.replace('Cali', 'Cali')
