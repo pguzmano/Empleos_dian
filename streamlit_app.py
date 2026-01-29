@@ -12,6 +12,9 @@ load_dotenv()
 # Page config
 st.set_page_config(page_title="Empleos DIAN", layout="wide")
 
+st.success("🚀 La aplicación se ha iniciado correctamente!")
+st.info("Cargando datos... Por favor espera un momento.")
+
 # Configure Gemini
 # Configure Gemini
 gemini_api_key = os.environ.get("GEMINI_API_KEY")
@@ -100,6 +103,27 @@ CITY_COORDINATES = {
     "Sogamoso": {"lat": 5.7145, "lon": -72.9339},
     "Duitama": {"lat": 5.8245, "lon": -73.0341}
 }
+
+def normalize_city_name(name):
+    """Normalize city names to handle encoding issues and formatting variations"""
+    if not isinstance(name, str):
+        return "Desconocido"
+    
+    # Common encoding fixes for Spanish characters
+    name = name.replace('', 'o').replace('', 'o') # Common artifacts for 'ó'
+    name = name.replace('Bogot', 'Bogotá').replace('Bogotá D.C.', 'Bogotá D.C.')
+    name = name.replace('Medelln', 'Medellín')
+    name = name.replace('Cali', 'Cali')
+    
+    # Strip whitespace and standardized cases
+    name = name.strip()
+    
+    # Try fuzzy matching or exact matching after cleaning
+    for city in CITY_COORDINATES.keys():
+        if city.lower() in name.lower() or name.lower() in city.lower():
+            return city
+            
+    return name
 
 # Load data
 @st.cache_data(ttl=600)
@@ -196,6 +220,9 @@ def load_data():
                     vacancies = 1
                     
                     if isinstance(val, str):
+                        # Fix encoding in raw string if present before split
+                        val = val.replace('', 'o').replace('', 'o')
+                        
                         parts = val.split(' - ')
                         # Try to extract vacancies count from first part
                         try:
@@ -206,7 +233,7 @@ def load_data():
                         
                         # Try to extract city from second part
                         if len(parts) >= 2:
-                            city = parts[1].strip()
+                            city = normalize_city_name(parts[1].strip())
                             
                     return pd.Series([city, vacancies])
                 
@@ -244,13 +271,12 @@ def load_data():
     
     # Fallback to local file
     try:
-        local_file = "EmpleosDIAN_2025.xlsx"
+        # Use absolute path for cloud stability
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        local_file = os.path.join(base_path, "EmpleosDIAN_2025.xlsx")
+        
         if os.path.exists(local_file):
-            if supabase is None or 'response' in locals() or 'e' in locals():
-                 # Only show warning if really offline to avoid clutter
-                 pass
-                 # st.toast("⚠️ Usando datos locales (Offline)", icon="📂")
-                 
+            print(f"Loading local file: {local_file}")
             df = pd.read_excel(local_file)
             
             # Helper to find col by keyword
@@ -298,11 +324,21 @@ def load_data():
                 new_df['codigo_empleo'] = df[codigo_empleo_col]
             
             # Process the dataframe to extract city, vacancies and coords
+            print(f"Successfully loaded {len(new_df)} rows from local file")
             return process_dataframe(new_df)
+        else:
+            print(f"ERROR: Local file not found: {local_file}")
+            print(f"Current directory: {os.getcwd()}")
+            print(f"Files in directory: {os.listdir('.')}")
             
     except Exception as e:
-        st.error(f"Error cargando datos locales: {e}")
+        # Log to console instead of showing error to user
+        print(f"Error loading local data: {e}")
+        import traceback
+        traceback.print_exc()
     
+    # Return empty DataFrame if all else fails
+    print("WARNING: Returning empty DataFrame - no data source available")
     return pd.DataFrame()
 
 # Layout
@@ -649,27 +685,49 @@ if not df.empty:
                 'vacantes_count': 'vacantes'
             })
             
-            # Create interactive map with Plotly
-            fig = px.scatter_mapbox(
-                map_data_grouped,
-                lat='lat',
-                lon='lon',
-                size='vacantes',
-                color='vacantes',
-                hover_name='ciudad',
-                hover_data={'lat': False, 'lon': False, 'vacantes': True},
-                color_continuous_scale='Viridis',
-                size_max=30,
-                zoom=5,
-                center={'lat': 4.5709, 'lon': -74.2973},  # Centro de Colombia
-                mapbox_style='open-street-map',
-                title='Haz clic en una ciudad para filtrar'
-            )
-            
-            fig.update_layout(
-                height=500,
-                margin={"r": 0, "t": 40, "l": 0, "b": 0}
-            )
+            # Create interactive map with Plotly (with fallback for old versions in cloud)
+            try:
+                # Try modern scatter_map first
+                fig = px.scatter_map(
+                    map_data_grouped,
+                    lat='lat',
+                    lon='lon',
+                    size='vacantes',
+                    color='vacantes',
+                    hover_name='ciudad',
+                    hover_data={'lat': False, 'lon': False, 'vacantes': True},
+                    color_continuous_scale='Viridis',
+                    size_max=30,
+                    zoom=5,
+                    center={'lat': 4.5709, 'lon': -74.2973},
+                    title='Haz clic en una ciudad para filtrar'
+                )
+                fig.update_layout(
+                    height=500,
+                    margin={"r": 0, "t": 40, "l": 0, "b": 0},
+                    map_style='open-street-map'
+                )
+            except Exception:
+                # Fallback to old scatter_mapbox if scatter_map is not available
+                fig = px.scatter_mapbox(
+                    map_data_grouped,
+                    lat='lat',
+                    lon='lon',
+                    size='vacantes',
+                    color='vacantes',
+                    hover_name='ciudad',
+                    hover_data={'lat': False, 'lon': False, 'vacantes': True},
+                    color_continuous_scale='Viridis',
+                    size_max=30,
+                    zoom=5,
+                    center={'lat': 4.5709, 'lon': -74.2973},
+                    mapbox_style='open-street-map',
+                    title='Haz clic en una ciudad para filtrar (Legacy Mode)'
+                )
+                fig.update_layout(
+                    height=500,
+                    margin={"r": 0, "t": 40, "l": 0, "b": 0}
+                )
             
             # Display the map
             selected_points = st.plotly_chart(fig, use_container_width=True, on_select="rerun", key="map_selection")

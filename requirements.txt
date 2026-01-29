@@ -1,7 +1,7 @@
-pandas
+pandas>=2.0.0
 supabase
 openpyxl
 python-dotenv
 streamlit
 google-generativeai>=0.5.0
-plotly
+plotly>=5.24.0
