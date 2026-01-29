@@ -6,12 +6,12 @@ from dotenv import load_dotenv
 # Page config - MUST BE FIRST
 st.set_page_config(page_title="Empleos DIAN", layout="wide")
 
-# HEARTBEAT - Prove app is starting
-st.success("🏁 Aplicación detectada por el servidor")
-st.info("Iniciando carga de módulos...")
+# HEARTBEAT - Prove app is starting (Keep quiet now app is stable)
+# st.success("🏁 Aplicación detectada por el servidor")
+# st.info("Iniciando carga de módulos...")
 
 # HEARTBEAT - Prove app is running
-st.success("🚀 Motor de Streamlit activo")
+# st.success("🚀 Motor de Streamlit activo")
 
 # Load environment variables if present
 try:
@@ -59,7 +59,7 @@ def init_connection():
         return None
 
 supabase = init_connection()
-st.info("Conexiones inicializadas...")
+# st.info("Conexiones inicializadas...")
 
 # City Coordinates Mapping (Colombia)
 CITY_COORDINATES = {
@@ -123,8 +123,10 @@ def normalize_city_name(name):
     name = name.strip()
     
     # Try fuzzy matching or exact matching after cleaning
+    name_lower = name.lower().strip()
     for city in CITY_COORDINATES.keys():
-        if city.lower() in name.lower() or name.lower() in city.lower():
+        city_lower = city.lower()
+        if city_lower == name_lower or city_lower in name_lower or name_lower in city_lower:
             return city
             
     return name
@@ -494,48 +496,44 @@ if not df.empty:
         
         # 1. City Filter (Top Level)
         cities = sorted(df["ciudad"].dropna().unique())
-        if "city_filter_widget" not in st.session_state:
-            st.session_state.city_filter_widget = cities
-            
         selected_cities = st.multiselect("Seleccionar Ciudad", cities, key="city_filter_widget")
         
-        # Filter data for next steps
-        df_filtered_context = df.copy()
+        # Filter data for calculating next level filter options
+        df_opt_context = df.copy()
         if selected_cities:
-            df_filtered_context = df_filtered_context[df_filtered_context["ciudad"].isin(selected_cities)]
+            df_opt_context = df_opt_context[df_opt_context["ciudad"].isin(selected_cities)]
 
         # 2. Category Filter
         if 'categoria' in df.columns:
-            # Show only categories available in selected cities
-            categorias = sorted(df_filtered_context["categoria"].dropna().unique())
-            selected_categorias = st.multiselect("Seleccionar Categoría", categorias, default=categorias)
+            categorias = sorted(df_opt_context["categoria"].dropna().unique())
+            selected_categorias = st.multiselect("Seleccionar Categoría", categorias)
             if selected_categorias:
-                df_filtered_context = df_filtered_context[df_filtered_context["categoria"].isin(selected_categorias)]
+                df_opt_context = df_opt_context[df_opt_context["categoria"].isin(selected_categorias)]
         else:
             selected_categorias = None
             
         # 3. Convocatoria Filter
         if 'convocatoria' in df.columns:
-            convocatorias = sorted(df_filtered_context["convocatoria"].dropna().unique())
-            selected_convocatoria = st.multiselect("Seleccionar Convocatoria", convocatorias, default=convocatorias)
+            convocatorias = sorted(df_opt_context["convocatoria"].dropna().unique())
+            selected_convocatoria = st.multiselect("Seleccionar Convocatoria", convocatorias)
             if selected_convocatoria:
-                 df_filtered_context = df_filtered_context[df_filtered_context["convocatoria"].isin(selected_convocatoria)]
+                 df_opt_context = df_opt_context[df_opt_context["convocatoria"].isin(selected_convocatoria)]
         else:
             selected_convocatoria = None
 
         # 4. Ficha (Proceso) Filter
         if 'proceso' in df.columns:
-            procesos = sorted(df_filtered_context["proceso"].dropna().unique())
-            selected_procesos = st.multiselect("Filtrar por Ficha", procesos, default=procesos)
+            procesos = sorted(df_opt_context["proceso"].dropna().unique())
+            selected_procesos = st.multiselect("Filtrar por Ficha", procesos)
             if selected_procesos:
-                df_filtered_context = df_filtered_context[df_filtered_context["proceso"].isin(selected_procesos)]
+                df_opt_context = df_opt_context[df_opt_context["proceso"].isin(selected_procesos)]
         else:
             selected_procesos = None
             
         # 5. Study Filter
         if 'estudios_parsed' in df.columns:
-            # Flatten list of lists to get unique values from the CURRENT filtered context
-            current_nbcs = sorted(list(set([item for sublist in df_filtered_context['estudios_parsed'] for item in sublist])))
+            # Flatten list of lists to get unique values from the CURRENT context
+            current_nbcs = sorted(list(set([item for sublist in df_opt_context['estudios_parsed'] for item in sublist])))
             selected_estudios = st.multiselect("Filtrar por Estudio", current_nbcs)
         else:
             selected_estudios = None
@@ -580,56 +578,43 @@ if not df.empty:
                 except Exception as e:
                     st.error(f"Error listando modelos: {e}")
 
-    # Apply Filters
-    filtered_df = df[
-        (df["ciudad"].isin(selected_cities)) &
-        (df["salario"] >= selected_salary[0]) &
-        (df["salario"] <= selected_salary[1])
-    ]
+    # Final Boolean Masking (Empty Filter = Show All)
+    mask = (df["salario"] >= selected_salary[0]) & (df["salario"] <= selected_salary[1])
     
-    # Apply category filter if available
-    if selected_categorias is not None and 'categoria' in df.columns:
-        filtered_df = filtered_df[filtered_df["categoria"].isin(selected_categorias)]
-
-    # Apply convocatoria filter if available
-    if selected_convocatoria is not None and 'convocatoria' in df.columns:
-        filtered_df = filtered_df[filtered_df["convocatoria"].isin(selected_convocatoria)]
-
-    # Apply process filter if available
-    if selected_procesos is not None and 'proceso' in df.columns:
-        filtered_df = filtered_df[filtered_df["proceso"].isin(selected_procesos)]
+    if selected_cities:
+        mask &= df["ciudad"].isin(selected_cities)
+    
+    if selected_categorias and 'categoria' in df.columns:
+        mask &= df["categoria"].isin(selected_categorias)
         
-    # Apply Study filter if available
+    if selected_convocatoria and 'convocatoria' in df.columns:
+        mask &= df["convocatoria"].isin(selected_convocatoria)
+        
+    if selected_procesos and 'proceso' in df.columns:
+        mask &= df["proceso"].isin(selected_procesos)
+        
     if selected_estudios and 'estudios_parsed' in df.columns:
-        # Check if any selected study is in the row's list of studies
-        filtered_df = filtered_df[filtered_df['estudios_parsed'].apply(lambda x: any(s in selected_estudios for s in x))]
+        # For list columns, check if any element matches
+        mask &= df["estudios_parsed"].apply(lambda x: any(item in selected_estudios for item in x))
 
-    # Create a separate dataframe for the map that ignores the city filter
-    # This allows the map to show all cities matching other filters, so users can select them
-    map_df = df.copy()
-    
-    # Apply Salary Filter to map_df
-    map_df = map_df[
-        (map_df["salario"] >= selected_salary[0]) &
-        (map_df["salario"] <= selected_salary[1])
-    ]
-    
-    # Apply Category Filter to map_df
-    if selected_categorias is not None and 'categoria' in map_df.columns:
-        map_df = map_df[map_df["categoria"].isin(selected_categorias)]
-        
-    # Apply Convocatoria Filter to map_df
-    if selected_convocatoria is not None and 'convocatoria' in map_df.columns:
-        map_df = map_df[map_df["convocatoria"].isin(selected_convocatoria)]
+    filtered_df = df[mask]
 
-    # Apply Process Filter to map_df
-    # Apply Process Filter to map_df
-    if selected_procesos is not None and 'proceso' in map_df.columns:
-        map_df = map_df[map_df["proceso"].isin(selected_procesos)]
+    # Create map data (ignores city filter to allow selection)
+    map_mask = (df["salario"] >= selected_salary[0]) & (df["salario"] <= selected_salary[1])
+    
+    if selected_categorias and 'categoria' in df.columns:
+        map_mask &= df["categoria"].isin(selected_categorias)
         
-    # Apply Study filter to map_df
-    if selected_estudios and 'estudios_parsed' in map_df.columns:
-        map_df = map_df[map_df['estudios_parsed'].apply(lambda x: any(s in selected_estudios for s in x))]
+    if selected_convocatoria and 'convocatoria' in df.columns:
+        map_mask &= df["convocatoria"].isin(selected_convocatoria)
+        
+    if selected_procesos and 'proceso' in df.columns:
+        map_mask &= df["proceso"].isin(selected_procesos)
+        
+    if selected_estudios and 'estudios_parsed' in df.columns:
+        map_mask &= df["estudios_parsed"].apply(lambda x: any(item in selected_estudios for item in x))
+
+    map_df = df[map_mask]
 
     # Main Content
     
