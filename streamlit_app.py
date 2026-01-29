@@ -268,10 +268,12 @@ def load_data():
             ciudad_col = get_col(['vacantes', 'ubicacion', 'ciudad'], exclude=['cantidad'])
             categoria_col = get_col(['categoria', 'categor'])
             convocatoria_col = get_col(['convocatoria'])
-            convocatoria_col = get_col(['convocatoria'])
             descripcion_col = get_col(['descripci'])
             estudio_col = get_col(['estudio'])
             experiencia_col = get_col(['experiencia'])
+            opec_col = get_col(['opec'])
+            grado_col = get_col(['grado'])
+            codigo_empleo_col = get_col(['código empleo', 'codigo empleo'])
             
             new_df = pd.DataFrame()
             if cargo_col: new_df['cargo'] = df[cargo_col]
@@ -288,6 +290,12 @@ def load_data():
                 new_df['estudio'] = df[estudio_col]
             if experiencia_col:
                 new_df['experiencia'] = df[experiencia_col]
+            if opec_col:
+                new_df['opec'] = df[opec_col]
+            if grado_col:
+                new_df['grado'] = df[grado_col]
+            if codigo_empleo_col:
+                new_df['codigo_empleo'] = df[codigo_empleo_col]
             
             # Process the dataframe to extract city, vacancies and coords
             return process_dataframe(new_df)
@@ -337,7 +345,7 @@ def generate_data_summary(dataframe):
 Incluye insights profundos sobre patrones geográficos, distribución de cargos, disparidades salariales y cualquier tendencia notable. No limites la longitud de tu respuesta, sé exhaustivo."""
 
         # Try multiple models in order of preference based on available models
-        models_to_try = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash']
+        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp']
         response = None
         errors = []
         
@@ -389,7 +397,7 @@ Pregunta del usuario: {user_question}
 Responde la pregunta en español de forma completa y detallada basándote en los datos disponibles. Si la respuesta requiere una lista larga, proporciónala."""
 
         # Try multiple models in order of preference based on available models
-        models_to_try = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash']
+        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp']
         response = None
         errors = []
         
