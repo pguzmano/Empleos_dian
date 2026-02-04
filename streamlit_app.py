@@ -104,7 +104,23 @@ CITY_COORDINATES = {
     "Tuluá": {"lat": 4.0847, "lon": -76.1969},
     "Girardot": {"lat": 4.3091, "lon": -74.8016},
     "Sogamoso": {"lat": 5.7145, "lon": -72.9339},
-    "Duitama": {"lat": 5.8245, "lon": -73.0341}
+    "Duitama": {"lat": 5.8245, "lon": -73.0341},
+    "Puerto Asís": {"lat": 0.5057, "lon": -76.5017},
+    "Ipiales": {"lat": 0.8248, "lon": -77.6441},
+    "Maicao": {"lat": 11.3775, "lon": -72.2415},
+    "Ocaña": {"lat": 8.2372, "lon": -73.3567},
+    "Pamplona": {"lat": 7.3758, "lon": -72.6464},
+    "San Gil": {"lat": 6.5562, "lon": -73.1360},
+    "Túquerres": {"lat": 1.0856, "lon": -77.6083},
+    "Turbo": {"lat": 8.0934, "lon": -76.7275},
+    "Yumbo": {"lat": 3.5855, "lon": -76.4957},
+    "Zipaquirá": {"lat": 5.0264, "lon": -74.0089},
+    "Facatativá": {"lat": 4.8091, "lon": -74.3541},
+    "Fusagasugá": {"lat": 4.3375, "lon": -74.3642},
+    "Girardot": {"lat": 4.3091, "lon": -74.8016},
+    "La Dorada": {"lat": 5.4542, "lon": -74.6614},
+    "Magangué": {"lat": 9.2425, "lon": -74.7547},
+    "Apartadó": {"lat": 7.8829, "lon": -76.6258}
 }
 
 def normalize_city_name(name):
@@ -112,21 +128,37 @@ def normalize_city_name(name):
     if not isinstance(name, str):
         return "Desconocido"
     
-    # Common encoding fixes for Spanish characters (using unicode escape for robustness)
-    name = name.replace('\ufffd', 'o') # Replaces  with o
-    name = name.replace('Denominacin', 'Denominación').replace('Descripcin', 'Descripción')
-    name = name.replace('Bogot', 'Bogotá').replace('Bogotá D.C.', 'Bogotá D.C.')
-    name = name.replace('Medelln', 'Medellín')
-    name = name.replace('Cali', 'Cali')
-    
-    # Strip whitespace and standardized cases
+    # Strip whitespace
     name = name.strip()
+    
+    # Handle known corruption patterns manually
+    # The replacement character '\ufffd' might be different vowels
+    if 'Bogot' in name: return "Bogotá D.C."
+    if 'Medell' in name: return "Medellín" 
+    if 'Cucuta' in name or 'C\ufffdcuta' in name or 'C?cuta' in name: return "Cúcuta"
+    if 'Ibagu' in name: return "Ibagué"
+    if 'Monter' in name: return "Montería"
+    if 'Popay' in name: return "Popayán"
+    if 'San Andr' in name: return "San Andrés"
+    if 'Puerto As' in name and 's' in name: return "Puerto Asís"
+    if 'Malaga' in name or 'M\ufffdlaga' in name: return "Málaga"
+    if 'Oca' in name and 'a' in name: return "Ocaña"
+    
+    # General cleanups
+    name = name.replace('\ufffd', '') # Remove bad char if not caught above
+    name = name.replace('Denominacin', 'Denominación').replace('Descripcin', 'Descripción')
     
     # Try fuzzy matching or exact matching after cleaning
     name_lower = name.lower().strip()
     for city in CITY_COORDINATES.keys():
         city_lower = city.lower()
-        if city_lower == name_lower or city_lower in name_lower or name_lower in city_lower:
+        if city_lower == name_lower: # Exact match
+            return city
+    
+    # Substring match (dangerous but useful for "Cali - Valle")
+    for city in CITY_COORDINATES.keys():
+        city_lower = city.lower()
+        if city_lower in name_lower and len(city) > 4: # Avoid short names like "Cali" matching "Calidad" (unlikely here but safe)
             return city
             
     return name
