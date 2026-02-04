@@ -300,6 +300,15 @@ def load_data():
             ciudad_col = get_col(['vacantes', 'ubicacion', 'ciudad'], exclude=['cantidad'])
             categoria_col = get_col(['categoria', 'categor'])
             convocatoria_col = get_col(['convocatoria'])
+
+            # --- FILTER: Keep only "Ingreso" (Open) processes ---
+            if convocatoria_col:
+                # Filter rows where convocatoria contains 'Ingreso' (case insensitive)
+                # Drop NA values first to avoid errors
+                df = df.dropna(subset=[convocatoria_col])
+                df = df[df[convocatoria_col].astype(str).str.contains('Ingreso', case=False, na=False)]
+                print(f"Filtered to keep only 'Ingreso' processes. Remaining rows: {len(df)}")
+            # ----------------------------------------------------
             descripcion_col = get_col(['descripci'])
             estudio_col = get_col(['estudio'])
             experiencia_col = get_col(['experiencia'])
@@ -504,7 +513,7 @@ if not df.empty:
             df_opt_context = df_opt_context[df_opt_context["ciudad"].isin(selected_cities)]
 
         # 2. Category Filter
-        if 'categoria' in df.columns:
+        if 'categoria' in df.columns and not df_opt_context.empty:
             categorias = sorted(df_opt_context["categoria"].dropna().unique())
             selected_categorias = st.multiselect("Seleccionar Categoría", categorias)
             if selected_categorias:
@@ -513,7 +522,7 @@ if not df.empty:
             selected_categorias = None
             
         # 3. Convocatoria Filter
-        if 'convocatoria' in df.columns:
+        if 'convocatoria' in df.columns and not df_opt_context.empty:
             convocatorias = sorted(df_opt_context["convocatoria"].dropna().unique())
             selected_convocatoria = st.multiselect("Seleccionar Convocatoria", convocatorias)
             if selected_convocatoria:
@@ -522,7 +531,7 @@ if not df.empty:
             selected_convocatoria = None
 
         # 4. Ficha (Proceso) Filter
-        if 'proceso' in df.columns:
+        if 'proceso' in df.columns and not df_opt_context.empty:
             procesos = sorted(df_opt_context["proceso"].dropna().unique())
             selected_procesos = st.multiselect("Filtrar por Ficha", procesos)
             if selected_procesos:
@@ -531,7 +540,7 @@ if not df.empty:
             selected_procesos = None
             
         # 5. Study Filter
-        if 'estudios_parsed' in df.columns:
+        if 'estudios_parsed' in df.columns and not df_opt_context.empty:
             # Flatten list of lists to get unique values from the CURRENT context
             current_nbcs = sorted(list(set([item for sublist in df_opt_context['estudios_parsed'] for item in sublist])))
             selected_estudios = st.multiselect("Filtrar por Estudio", current_nbcs)
