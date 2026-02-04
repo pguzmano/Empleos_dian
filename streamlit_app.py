@@ -259,7 +259,8 @@ def load_data():
                     
                     if isinstance(val, str):
                         # Fix encoding in raw string if present before split
-                        val = val.replace('', 'o').replace('', 'o')
+                        # Fix encoding in raw string if present before split
+                        val = val.replace('\ufffd', '')
                         
                         parts = val.split(' - ')
                         # Try to extract vacancies count from first part
